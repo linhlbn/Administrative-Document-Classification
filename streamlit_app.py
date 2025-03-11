@@ -190,7 +190,7 @@ if uploaded_files:
         st.write(df)
 
         chart_type = st.selectbox("📊 Choose Chart Type", ["Bar", "Pie"])
-        metric = st.selectbox("📌 Choose Metric", ["Main category", "Subcategory", "Domain/ Industry"])
+        metric = st.selectbox("📌 Choose Metric", ["Main category", "Subcategory"])
 
         if chart_type == "Bar":
             plt.figure(figsize=(10, 5))
