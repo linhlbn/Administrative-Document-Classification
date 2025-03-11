@@ -117,11 +117,11 @@ if uploaded_files:
         - Subcategory (e.g., Inspection Report, Investment Proposal, Research Evaluation). If multiple, separate with `/`
         - Domain/Industry (e.g., Government Administration, Science & Technology). If multiple, separate with `/`
 
-        Respond strictly in CSV format with ',' as a delimiter:
+        Respond strictly in CSV format with ',' as a delimiter, the content should be in Vietnamese:
         File name, Main category, Subcategory, Domain/ Industry, Pages
 
         Example:
-        1_bc_ket_qua_thuc_hien_kl_than202408100849157_Signed.pdf, Report, Inspection Report, Government Administration, 4
+        1-C24MXD-00003085.pdf, Hóa đơn, Hóa đơn giá trị gia tăng, Thương mại/Dịch vụ, 1
 
         Here is the document text:
         {text[:2000]}
