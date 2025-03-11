@@ -189,8 +189,8 @@ if uploaded_files:
         df = pd.DataFrame(st.session_state.classification_results, columns=["File name", "Main category", "Subcategory", "Domain/ Industry", "Pages"])
         st.write(df)
 
-        chart_type = st.selectbox("📊 Choose Chart Type", ["Bar", "Pie", "Line"])
-        metric = st.selectbox("📌 Choose Metric", ["Pages", "Main category", "Subcategory"])
+        chart_type = st.selectbox("📊 Choose Chart Type", ["Bar", "Pie"])
+        metric = st.selectbox("📌 Choose Metric", ["Main category", "Subcategory"])
 
         if chart_type == "Bar":
             plt.figure(figsize=(10, 5))
