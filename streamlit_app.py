@@ -140,6 +140,7 @@ if uploaded_files:
             st.stop()
 
     if process_all:
+        st.session_state.classification_results = []  # Clear previous results
         start_time = time.time()
         progress_bar = st.progress(0)
 
@@ -159,6 +160,7 @@ if uploaded_files:
         st.success(f"✅ **All files processed in {total_time} sec (~{total_time/60:.2f} min)**")
 
     if process_batches:
+        st.session_state.classification_results = []  # Clear previous results
         start_time = time.time()
         file_batches = [saved_file_paths[i:i + batch_size] for i in range(0, total_files, batch_size)]
 
@@ -190,7 +192,7 @@ if uploaded_files:
         st.write(df)
 
         chart_type = st.selectbox("📊 Choose Chart Type", ["Bar", "Pie"])
-        metric = st.selectbox("📌 Choose Metric", ["Main category", "Subcategory"])
+        metric = st.selectbox("📌 Choose Metric", ["Main category", "Subcategory", "Domain/ Industry"])
 
         if chart_type == "Bar":
             plt.figure(figsize=(10, 5))
