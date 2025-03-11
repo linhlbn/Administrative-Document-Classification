@@ -117,18 +117,27 @@ if uploaded_files:
         Here is the document text:
         {text[:2000]}
         """
+        
+        try:
+            response = openai.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "You classify administrative documents into structured categories."},
+                    {"role": "user", "content": prompt}
+                ]
+            )
 
-        response = openai.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "You classify administrative documents into structured categories."},
-                {"role": "user", "content": prompt}
-            ]
-        )
+            result = response.choices[0].message.content.strip()
+            lines = result.split("\n")
+            return lines[1] if len(lines) > 1 else result
 
-        result = response.choices[0].message.content.strip()
-        lines = result.split("\n")
-        return lines[1] if len(lines) > 1 else result
+        except openai.AuthenticationError:
+            st.error("❌ Invalid API Key! Please enter a valid OpenAI API key.")
+            st.stop()
+
+        except openai.OpenAIError as e:
+            st.error(f"⚠️ OpenAI API Error: {str(e)}")
+            st.stop()
 
     if process_all:
         start_time = time.time()
