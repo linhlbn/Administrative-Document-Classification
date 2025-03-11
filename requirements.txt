@@ -1,0 +1,7 @@
+openai
+PyPDF2
+python-docx
+pandas
+matplotlib
+seaborn
+datetime
