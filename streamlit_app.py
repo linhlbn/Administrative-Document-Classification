@@ -41,7 +41,19 @@ if not api_key:
 
 openai.api_key = api_key
 
+if "classification_results" not in st.session_state:
+    st.session_state.classification_results = []
+
+if "processed_files" not in st.session_state:
+    st.session_state.processed_files = set()
+
 uploaded_files = st.file_uploader("📂 Upload files", type=["pdf", "txt", "docx"], accept_multiple_files=True)
+
+if st.button("🗑️ Clear Uploaded Files"):
+    uploaded_files = None
+    st.session_state.classification_results = []
+    st.session_state.processed_files = set()
+    st.rerun()
 
 if uploaded_files:
     total_files = len(uploaded_files)
@@ -72,9 +84,6 @@ if uploaded_files:
 
     process_all = st.button("🔄 Process All Files Now")
     process_batches = st.button("⏳ Process in Batches")
-
-    if "classification_results" not in st.session_state:
-        st.session_state.classification_results = []
 
     def extract_text(file_path):
         file_extension = file_path.split(".")[-1].lower()
@@ -139,53 +148,31 @@ if uploaded_files:
             st.error(f"⚠️ OpenAI API Error: {str(e)}")
             st.stop()
 
-    if process_all:
-        st.session_state.classification_results = []  # Clear previous results
-        start_time = time.time()
-        progress_bar = st.progress(0)
-
-        with st.spinner("Processing all files... Please wait."):
-            for index, file_path in enumerate(saved_file_paths):
-                text, pages = extract_text(file_path)
-                classification = classify_document(text, os.path.basename(file_path))
-
-                classification_data = classification.split(", ")
-                if len(classification_data) >= 4:
-                    file_name, main_category, subcategory, domain = classification_data[:4]
-                    st.session_state.classification_results.append([file_name, main_category, subcategory, domain, pages])
-
-                progress_bar.progress((index + 1) / total_files)
-
-        total_time = round(time.time() - start_time, 2)
-        st.success(f"✅ **All files processed in {total_time} sec (~{total_time/60:.2f} min)**")
-
-    if process_batches:
-        st.session_state.classification_results = []  # Clear previous results
-        start_time = time.time()
+    if process_all or process_batches:
         file_batches = [saved_file_paths[i:i + batch_size] for i in range(0, total_files, batch_size)]
-
         for batch_index, batch in enumerate(file_batches):
-            batch_start_time = time.time()
             st.write(f"⚙️ Processing batch {batch_index + 1} of {len(file_batches)}...")
 
             for file_path in batch:
+                file_name = os.path.basename(file_path)
+
+                if file_name in st.session_state.processed_files:
+                    continue
+
                 text, pages = extract_text(file_path)
-                classification = classify_document(text, os.path.basename(file_path))
+                classification = classify_document(text, file_name)
 
                 classification_data = classification.split(", ")
                 if len(classification_data) >= 4:
-                    file_name, main_category, subcategory, domain = classification_data[:4]
+                    main_category, subcategory, domain = classification_data[1:4]
                     st.session_state.classification_results.append([file_name, main_category, subcategory, domain, pages])
+                    st.session_state.processed_files.add(file_name)
 
-            batch_time = round(time.time() - batch_start_time, 2)
-            st.success(f"✅ **Batch {batch_index + 1} processed in {batch_time} sec**")
+            st.success(f"✅ **Batch {batch_index + 1} processed**")
 
-            if batch_index < len(file_batches) - 1:
+            if process_batches and batch_index < len(file_batches) - 1:
                 st.write(f"⏳ Waiting {delay_time} sec before next batch...")
                 time.sleep(delay_time)
-
-        total_time = round(time.time() - start_time, 2)
-        st.success(f"✅ **All batches processed in {total_time} sec (~{total_time/60:.2f} min)**")
 
     if st.session_state.classification_results:
         df = pd.DataFrame(st.session_state.classification_results, columns=["File name", "Main category", "Subcategory", "Domain/ Industry", "Pages"])
@@ -204,6 +191,5 @@ if uploaded_files:
             df[metric].value_counts().plot.pie(autopct="%1.1f%%", figsize=(6, 6))
             st.pyplot(plt)
 
-        csv_file = "document_classification_results.csv"
-        df.to_csv(csv_file, index=False)
-        st.download_button("📥 Download CSV", data=open(csv_file, "rb"), file_name=csv_file, mime="text/csv")
+        df.to_csv("document_classification_results.csv", index=False)
+        st.download_button("📥 Download CSV", open("document_classification_results.csv", "rb"), "document_classification_results.csv", "text/csv")
