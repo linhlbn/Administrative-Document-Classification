@@ -49,12 +49,6 @@ if "processed_files" not in st.session_state:
 
 uploaded_files = st.file_uploader("📂 Upload files", type=["pdf", "txt", "docx"], accept_multiple_files=True)
 
-if st.button("🗑️ Clear Uploaded Files"):
-    uploaded_files = None
-    st.session_state.classification_results = []
-    st.session_state.processed_files = set()
-    st.rerun()
-
 if uploaded_files:
     total_files = len(uploaded_files)
     st.write(f"📂 **Total files uploaded:** {total_files}")
@@ -126,7 +120,7 @@ if uploaded_files:
         Here is the document text:
         {text[:2000]}
         """
-        
+
         try:
             response = openai.chat.completions.create(
                 model="gpt-4o-mini",
@@ -149,16 +143,18 @@ if uploaded_files:
             st.stop()
 
     if process_all or process_batches:
+        progress_bar = st.progress(0)
         file_batches = [saved_file_paths[i:i + batch_size] for i in range(0, total_files, batch_size)]
+        
         for batch_index, batch in enumerate(file_batches):
-            st.write(f"⚙️ Processing batch {batch_index + 1} of {len(file_batches)}...")
-
-            for file_path in batch:
+            st.subheader(f"⚙️ Processing Batch {batch_index + 1} of {len(file_batches)}")
+            for index, file_path in enumerate(batch):
                 file_name = os.path.basename(file_path)
 
                 if file_name in st.session_state.processed_files:
                     continue
 
+                st.write(f"🔄 **Processing file {index + 1}/{len(batch)}: {file_name}**")
                 text, pages = extract_text(file_path)
                 classification = classify_document(text, file_name)
 
@@ -168,8 +164,9 @@ if uploaded_files:
                     st.session_state.classification_results.append([file_name, main_category, subcategory, domain, pages])
                     st.session_state.processed_files.add(file_name)
 
-            st.success(f"✅ **Batch {batch_index + 1} processed**")
+                progress_bar.progress((index + 1) / len(batch))
 
+            st.success(f"✅ **Batch {batch_index + 1} processed**")
             if process_batches and batch_index < len(file_batches) - 1:
                 st.write(f"⏳ Waiting {delay_time} sec before next batch...")
                 time.sleep(delay_time)
