@@ -8,6 +8,10 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from dotenv import load_dotenv
+import openpyxl  # For .xlsx files
+import xlrd  # For .xls files
+import subprocess  # For handling .doc files
+import tempfile
 
 load_dotenv()
 
@@ -47,7 +51,8 @@ if "classification_results" not in st.session_state:
 if "processed_files" not in st.session_state:
     st.session_state.processed_files = set()
 
-uploaded_files = st.file_uploader("📂 Upload files", type=["pdf", "txt", "docx"], accept_multiple_files=True)
+# Updated file uploader to include all supported formats
+uploaded_files = st.file_uploader("📂 Upload files", type=["pdf", "txt", "docx", "doc", "xlsx", "xls"], accept_multiple_files=True)
 
 if uploaded_files:
     total_files = len(uploaded_files)
@@ -79,6 +84,94 @@ if uploaded_files:
     process_all = st.button("🔄 Process All Files Now")
     process_batches = st.button("⏳ Process in Batches")
 
+    def extract_text_from_doc(file_path):
+        """Extract text from old .doc format using textract or antiword fallbacks"""
+        text = ""
+        pages = 1
+        
+        try:
+            # First attempt - using python-docx if it works with .doc
+            try:
+                doc = docx.Document(file_path)
+                text = "\n".join([para.text for para in doc.paragraphs])
+                pages = len(doc.paragraphs) // 30 + 1
+                return text, pages
+            except:
+                pass
+                
+            # Second attempt - using textract if installed
+            try:
+                import textract
+                text = textract.process(file_path).decode('utf-8')
+                pages = text.count('\n') // 30 + 1
+                return text, pages
+            except ImportError:
+                pass
+                
+            # Third attempt - using antiword if installed
+            try:
+                result = subprocess.run(['antiword', file_path], capture_output=True, text=True)
+                if result.returncode == 0:
+                    text = result.stdout
+                    pages = text.count('\n') // 30 + 1
+                    return text, pages
+            except:
+                pass
+                
+            # Fourth attempt - convert to .txt using temporary file
+            try:
+                temp_txt = tempfile.NamedTemporaryFile(suffix='.txt', delete=False)
+                temp_txt.close()
+                
+                subprocess.run(['soffice', '--headless', '--convert-to', 'txt', 
+                               file_path, '--outdir', os.path.dirname(temp_txt.name)])
+                
+                converted_file = os.path.join(os.path.dirname(temp_txt.name), 
+                                             os.path.basename(file_path).rsplit('.', 1)[0] + '.txt')
+                
+                if os.path.exists(converted_file):
+                    with open(converted_file, 'r', encoding='utf-8', errors='replace') as f:
+                        text = f.read()
+                    pages = text.count('\n') // 30 + 1
+                    os.unlink(converted_file)
+                    os.unlink(temp_txt.name)
+                    return text, pages
+            except:
+                pass
+                
+            # Last resort - inform about missing text
+            return "Could not extract text from .doc file. Please install textract, antiword, or LibreOffice for .doc support.", 1
+                
+        except Exception as e:
+            return f"Error extracting text: {str(e)}", 1
+
+    def extract_text_from_xls(file_path):
+        """Extract text from old .xls format using xlrd"""
+        try:
+            workbook = xlrd.open_workbook(file_path)
+            sheet_texts = []
+            
+            for sheet_index in range(workbook.nsheets):
+                sheet = workbook.sheet_by_index(sheet_index)
+                sheet_text = []
+                
+                for row_idx in range(sheet.nrows):
+                    row_values = []
+                    for col_idx in range(sheet.ncols):
+                        cell_value = sheet.cell_value(row_idx, col_idx)
+                        if cell_value:
+                            row_values.append(str(cell_value))
+                    
+                    if row_values:
+                        sheet_text.append(" | ".join(row_values))
+                
+                sheet_texts.append(f"Sheet '{sheet.name}':\n" + "\n".join(sheet_text))
+            
+            return "\n\n".join(sheet_texts), workbook.nsheets
+            
+        except Exception as e:
+            return f"Error extracting text from .xls file: {str(e)}", 1
+
     def extract_text(file_path):
         file_extension = file_path.split(".")[-1].lower()
         text = ""
@@ -92,7 +185,7 @@ if uploaded_files:
                     text += page.extract_text() + "\n"
 
         elif file_extension == "txt":
-            with open(file_path, "r", encoding="utf-8") as file:
+            with open(file_path, "r", encoding="utf-8", errors="replace") as file:
                 text = file.read()
                 pages = text.count("\n") // 30 + 1
 
@@ -100,6 +193,30 @@ if uploaded_files:
             doc = docx.Document(file_path)
             text = "\n".join([para.text for para in doc.paragraphs])
             pages = len(doc.paragraphs) // 30 + 1
+            
+        elif file_extension == "doc":
+            text, pages = extract_text_from_doc(file_path)
+            
+        elif file_extension == "xlsx":
+            try:
+                workbook = openpyxl.load_workbook(file_path, data_only=True)
+                sheet_texts = []
+                for sheet in workbook.worksheets:
+                    sheet_text = []
+                    for row in sheet.iter_rows(values_only=True):
+                        row_text = " | ".join([str(cell) if cell is not None else "" for cell in row])
+                        if row_text.strip():
+                            sheet_text.append(row_text)
+                    sheet_texts.append(f"Sheet '{sheet.title}':\n" + "\n".join(sheet_text))
+                
+                text = "\n\n".join(sheet_texts)
+                pages = len(workbook.worksheets)
+            except Exception as e:
+                text = f"Error processing xlsx file: {str(e)}"
+                pages = 1
+                
+        elif file_extension == "xls":
+            text, pages = extract_text_from_xls(file_path)
 
         return text.strip(), pages
 
