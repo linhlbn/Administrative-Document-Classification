@@ -4,9 +4,6 @@ python-docx
 pandas
 matplotlib
 seaborn
-datetime
-load_dotenv
+python-dotenv
 openpyxl
 xlrd
-subprocess
-tempfile
