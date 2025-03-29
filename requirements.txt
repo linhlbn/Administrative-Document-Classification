@@ -7,3 +7,4 @@ seaborn
 python-dotenv
 openpyxl
 xlrd
+streamlit
